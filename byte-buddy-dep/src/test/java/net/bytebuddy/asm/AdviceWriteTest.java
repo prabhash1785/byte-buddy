@@ -45,7 +45,7 @@ public class AdviceWriteTest {
     public void testIllegalAssignment() throws Exception {
         new ByteBuddy()
                 .redefine(type)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_FRAMES).method(named(FOO), Advice.to(type)))
+                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(type)))
                 .make();
     }
 

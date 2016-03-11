@@ -54,7 +54,7 @@ public class AdviceTypeTest {
     public void testAdvice() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(advice)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_FRAMES).method(named(FOO), Advice.to(advice)))
+                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(advice)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -67,7 +67,7 @@ public class AdviceTypeTest {
     public void testAdviceWithException() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(advice)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_FRAMES).method(named(BAR), Advice.to(advice)))
+                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR), Advice.to(advice)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
