@@ -171,6 +171,24 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                 : new AdviceInjectionVisitor.WithExceptionHandling(methodVisitor, methodDescription, methodEnter, methodExit, binaryRepresentation);
     }
 
+    private static Object asFrame(TypeDescription typeDescription) {
+        if (typeDescription.represents(boolean.class)
+                || typeDescription.represents(byte.class)
+                || typeDescription.represents(short.class)
+                || typeDescription.represents(char.class)
+                || typeDescription.represents(int.class)) {
+            return Opcodes.INTEGER;
+        } else if (typeDescription.represents(long.class)) {
+            return Opcodes.LONG;
+        } else if (typeDescription.represents(float.class)) {
+            return Opcodes.FLOAT;
+        } else if (typeDescription.represents(double.class)) {
+            return Opcodes.DOUBLE;
+        } else {
+            return typeDescription.getInternalName();
+        }
+    }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) return true;
@@ -337,18 +355,11 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                 case Opcodes.F_FULL:
                 case Opcodes.F_NEW:
                     if (!methodEnter.getEnterType().represents(void.class)) {
-                        Object[] adjustedLocal = new Object[local.length + 1];
-                        System.arraycopy(local,
-                                NO_OFFSET,
-                                adjustedLocal,
-                                NO_OFFSET,
-                                instrumentedMethod.getParameters().size());
-                        adjustedLocal[instrumentedMethod.getParameters().size()] = makeDefaultElement();
-                        System.arraycopy(local,
-                                instrumentedMethod.getParameters().size(),
-                                adjustedLocal,
-                                instrumentedMethod.getParameters().size() + 1,
-                                stack.length - instrumentedMethod.getParameters().size());
+                        int oldLocals = instrumentedMethod.getParameters().size() + (instrumentedMethod.isStatic() ? 0 : 1);
+                        Object[] adjustedLocal = new Object[localVariableSize + 1];
+                        System.arraycopy(local, NO_OFFSET, adjustedLocal, NO_OFFSET, oldLocals);
+                        adjustedLocal[oldLocals] = asFrame(methodEnter.getEnterType());
+                        System.arraycopy(local, oldLocals, adjustedLocal, oldLocals + 1, localVariableSize - oldLocals);
                         mv.visitFrame(type, localVariableSize + 1, adjustedLocal, stackSize, stack);
                         break;
                     }
@@ -358,24 +369,6 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                 case Opcodes.F_CHOP:
                 default:
                     super.visitFrame(type, localVariableSize, local, stackSize, stack);
-            }
-        }
-
-        private Object makeDefaultElement() {
-            if (methodEnter.getEnterType().represents(boolean.class)
-                    || methodEnter.getEnterType().represents(byte.class)
-                    || methodEnter.getEnterType().represents(short.class)
-                    || methodEnter.getEnterType().represents(char.class)
-                    || methodEnter.getEnterType().represents(int.class)) {
-                return Opcodes.INTEGER;
-            } else if (methodEnter.getEnterType().represents(long.class)) {
-                return Opcodes.LONG;
-            } else if (methodEnter.getEnterType().represents(float.class)) {
-                return Opcodes.FLOAT;
-            } else if (methodEnter.getEnterType().represents(double.class)) {
-                return Opcodes.DOUBLE;
-            } else {
-                return methodEnter.getEnterType().getInternalName();
             }
         }
 
@@ -507,11 +500,24 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
             @Override
             protected void onMethodEnd() {
                 mv.visitLabel(userEnd);
+                Object[] local = new Object[instrumentedMethod.getParameters().size() + (instrumentedMethod.isStatic() ? 0 : 1)];
+                int index;
+                if (instrumentedMethod.isStatic()) {
+                    index = 0;
+                } else {
+                    local[0] = instrumentedMethod.getDeclaringType().getInternalName();
+                    index = 1;
+                }
+                for (TypeDescription typeDescription : instrumentedMethod.getParameters().asTypeList().asErasures()) {
+                    local[index++] = typeDescription.getInternalName();
+                }
+                mv.visitFrame(Opcodes.F_FULL, local.length, local, 1, new Object[]{Type.getInternalName(Throwable.class)});
                 mv.visitLabel(handler);
                 variable(Opcodes.ASTORE, instrumentedMethod.getReturnType().getStackSize().getSize());
                 storeDefaultReturn();
                 appendExit();
                 variable(Opcodes.ALOAD, instrumentedMethod.getReturnType().getStackSize().getSize());
+                mv.visitFrame(Opcodes.F_FULL, local.length, local.clone(), 1, new Object[]{Type.getInternalName(Throwable.class)});
                 mv.visitInsn(Opcodes.ATHROW);
             }
 
@@ -1753,8 +1759,6 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
 
                 @Override
                 public void visitMaxs(int maxStack, int maxLocals) {
-                    // TODO: maxStack taken as if
-                    // TODO: maxLocals - adviseMethodSize + instrumentedMethodSize
                     /* empty */
                 }
 
@@ -1786,6 +1790,23 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
 
                 @Override
                 public void visitEnd() {
+                    Object[] local = new Object[instrumentedMethod.getParameters().size()
+                            + (instrumentedMethod.isStatic() ? 0 : 1)
+                            + (adviseMethod.getReturnType().represents(void.class) ? 0 : 1)];
+                    int index;
+                    if (instrumentedMethod.isStatic()) {
+                        index = 0;
+                    } else {
+                        local[0] = instrumentedMethod.getDeclaringType().getInternalName();
+                        index = 1;
+                    }
+                    for (TypeDescription parameterType : instrumentedMethod.getParameters().asTypeList().asErasures()) {
+                        local[index++] = asFrame(parameterType);
+                    }
+                    if (!adviseMethod.getReturnType().represents(void.class)) {
+                        local[index] = asFrame(adviseMethod.getReturnType().asErasure());
+                    }
+                    mv.visitFrame(Opcodes.F_FULL, local.length, local, 0, new Object[0]);
                     mv.visitLabel(endOfMethod);
                     suppressionHandler.onEnd(mv, this);
                 }
@@ -1877,10 +1898,12 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                         @Override
                         public void onEnd(MethodVisitor methodVisitor, ReturnValueProducer returnValueProducer) {
                             Label endOfHandler = new Label();
+                            // TODO: stack map frame
                             methodVisitor.visitJumpInsn(Opcodes.GOTO, endOfHandler);
                             methodVisitor.visitLabel(handler);
                             methodVisitor.visitInsn(Opcodes.POP);
                             returnValueProducer.makeDefault(methodVisitor);
+                            // TODO: stack map frame
                             methodVisitor.visitLabel(endOfHandler);
                         }
 
@@ -1954,6 +1977,23 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                 mv.visitInsn(opcode);
                                 return;
                         }
+                        Object[] local = new Object[instrumentedMethod.getParameters().size()
+                                + (instrumentedMethod.isStatic() ? 0 : 1)
+                                + (adviseMethod.getReturnType().represents(void.class) ? 0 : 1)];
+                        int index;
+                        if (instrumentedMethod.isStatic()) {
+                            index = 0;
+                        } else {
+                            local[0] = instrumentedMethod.getDeclaringType().getInternalName();
+                            index = 1;
+                        }
+                        for (TypeDescription parameterType : instrumentedMethod.getParameters().asTypeList().asErasures()) {
+                            local[index++] = parameterType.getInternalName();
+                        }
+                        if (!adviseMethod.getReturnType().represents(void.class)) {
+                            local[index] = adviseMethod.getReturnType().asErasure().getInternalName();
+                        }
+                        mv.visitFrame(Opcodes.F_FULL, local.length, local, 0, new Object[0]);
                         mv.visitJumpInsn(Opcodes.GOTO, endOfMethod);
                     }
 
@@ -2017,24 +2057,6 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                         }
                     }
 
-                    private static Object asFrame(TypeDescription typeDescription) {
-                        if (typeDescription.represents(boolean.class)
-                                || typeDescription.represents(byte.class)
-                                || typeDescription.represents(short.class)
-                                || typeDescription.represents(char.class)
-                                || typeDescription.represents(int.class)) {
-                            return Opcodes.INTEGER;
-                        } else if (typeDescription.represents(long.class)) {
-                            return Opcodes.LONG;
-                        } else if (typeDescription.represents(float.class)) {
-                            return Opcodes.FLOAT;
-                        } else if (typeDescription.represents(double.class)) {
-                            return Opcodes.DOUBLE;
-                        } else {
-                            return typeDescription.getInternalName();
-                        }
-                    }
-
                     @Override
                     public String toString() {
                         return "Advice.Dispatcher.Active.CodeTranslationVisitor.ForMethodEnter{" +
@@ -2093,6 +2115,29 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                 mv.visitInsn(opcode);
                                 return;
                         }
+                        Object[] local = new Object[instrumentedMethod.getParameters().size()
+                                + (instrumentedMethod.isStatic() ? 0 : 1)
+                                + (adviseMethod.getReturnType().represents(void.class) ? 0 : 1)
+                                + (instrumentedMethod.getReturnType().represents(void.class) ? 0 : 1)
+                                + THROWABLE_SIZE];
+                        int index;
+                        if (instrumentedMethod.isStatic()) {
+                            index = 0;
+                        } else {
+                            local[0] = instrumentedMethod.getDeclaringType().getInternalName();
+                            index = 1;
+                        }
+                        for (TypeDescription parameterType : instrumentedMethod.getParameters().asTypeList().asErasures()) {
+                            local[index++] = parameterType.getInternalName();
+                        }
+                        if (!adviseMethod.getReturnType().represents(void.class)) {
+                            local[index++] = adviseMethod.getReturnType().asErasure().getInternalName();
+                        }
+                        if (!instrumentedMethod.getReturnType().represents(void.class)) {
+                            local[index++] = instrumentedMethod.getReturnType().asErasure().getInternalName();
+                        }
+                        local[index] = Type.getInternalName(Throwable.class);
+                        mv.visitFrame(Opcodes.F_FULL, local.length, local, 0, new Object[0]);
                         mv.visitJumpInsn(Opcodes.GOTO, endOfMethod);
                     }
 

@@ -11,7 +11,7 @@ import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.bytecode.StackSize;
 import net.bytebuddy.test.utility.ObjectPropertyAssertion;
 import org.junit.Test;
-import org.objectweb.asm.*;
+import org.objectweb.asm.ClassWriter;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -34,38 +34,6 @@ public class AdviceTest {
     private static final String ENTER = "enter", EXIT = "exit", INSIDE = "inside", THROWABLE = "throwable";
 
     private static final int VALUE = 42;
-
-//    @Test
-    public void testName() throws Exception {
-        ClassReader classReader = new ClassReader(Foo.class.getName());
-        classReader.accept(new ClassVisitor(Opcodes.ASM5) {
-            @Override
-            public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-                return new MethodVisitor(Opcodes.ASM5) {
-                    @Override
-                    public void visitFrame(int type, int nLocal, Object[] local, int nStack, Object[] stack) {
-                        super.visitFrame(type, nLocal, local, nStack, stack);
-                    }
-                };
-            }
-        }, ClassReader.EXPAND_FRAMES);
-    }
-
-    static boolean val;
-
-    private static class Foo {
-
-        void bar(long l) {
-            if (val) {
-                long l2 = 1;
-                if (l2 == 0) {
-                    System.out.println("1");
-                }
-            } else {
-                System.out.println("2");
-            }
-        }
-    }
 
     @Test
     public void testTrivialAdvice() throws Exception {
