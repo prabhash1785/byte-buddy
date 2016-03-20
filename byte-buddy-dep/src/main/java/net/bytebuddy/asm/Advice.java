@@ -16,10 +16,7 @@ import org.objectweb.asm.*;
 
 import java.io.IOException;
 import java.lang.annotation.*;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static net.bytebuddy.matcher.ElementMatchers.named;
 
@@ -440,7 +437,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
             /**
              * Creates a new code copier.
              *
-             * @param dispatcher The dispatcher to use.
+             * @param dispatcher      The dispatcher to use.
              * @param metaDataTracker
              */
             protected CodeCopier(Dispatcher.Resolved dispatcher, MetaDataTracker metaDataTracker) {
@@ -523,32 +520,15 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
             @Override
             protected void onMethodEnd() {
                 mv.visitLabel(userEnd);
-                Object[] local = new Object[instrumentedMethod.getParameters().size() + (instrumentedMethod.isStatic() ? 0 : 1)];
-                int index;
-                if (instrumentedMethod.isStatic()) {
-                    index = 0;
-                } else {
-                    local[0] = instrumentedMethod.getDeclaringType().getInternalName();
-                    index = 1;
-                }
-                for (TypeDescription typeDescription : instrumentedMethod.getParameters().asTypeList().asErasures()) {
-                    local[index++] = typeDescription.getInternalName();
-                }
-                if (metaDataTracker.isFullFrameRequired()) {
-                    mv.visitFrame(Opcodes.F_FULL, local.length, local, 1, new Object[]{Type.getInternalName(Throwable.class)});
-                } else {
-                    mv.visitFrame(Opcodes.F_SAME, -1, null, 0, new Object[0]);
-                }
+                List<TypeDescription> additionalArguments = new ArrayList<TypeDescription>();
+                // TODO: How to solve this?
+                metaDataTracker.defineFrame(mv, instrumentedMethod, additionalArguments, Collections.singletonList(TypeDescription.THROWABLE));
                 mv.visitLabel(handler);
                 variable(Opcodes.ASTORE, instrumentedMethod.getReturnType().getStackSize().getSize());
                 storeDefaultReturn();
                 appendExit();
                 variable(Opcodes.ALOAD, instrumentedMethod.getReturnType().getStackSize().getSize());
-                if (metaDataTracker.isFullFrameRequired()) {
-                    mv.visitFrame(Opcodes.F_FULL, local.length, local.clone(), 1, new Object[]{Type.getInternalName(Throwable.class)});
-                } else {
-                    mv.visitFrame(Opcodes.F_SAME, -1, null, 1, new Object[]{Type.getInternalName(Throwable.class)});
-                }
+                metaDataTracker.defineFrame(mv, instrumentedMethod, additionalArguments, Collections.singletonList(TypeDescription.THROWABLE));
                 mv.visitInsn(Opcodes.ATHROW);
             }
 
@@ -2102,27 +2082,9 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
 
                 @Override
                 public void visitEnd() {
-                    if (metaDataTracker.isFullFrameRequired()) {
-                        Object[] local = new Object[instrumentedMethod.getParameters().size()
-                                + (instrumentedMethod.isStatic() ? 0 : 1)
-                                + (adviseMethod.getReturnType().represents(void.class) ? 0 : 1)];
-                        int index;
-                        if (instrumentedMethod.isStatic()) {
-                            index = 0;
-                        } else {
-                            local[0] = instrumentedMethod.getDeclaringType().getInternalName();
-                            index = 1;
-                        }
-                        for (TypeDescription parameterType : instrumentedMethod.getParameters().asTypeList().asErasures()) {
-                            local[index++] = asFrame(parameterType);
-                        }
-                        if (!adviseMethod.getReturnType().represents(void.class)) {
-                            local[index] = asFrame(adviseMethod.getReturnType().asErasure());
-                        }
-                        mv.visitFrame(Opcodes.F_FULL, local.length, local, 0, new Object[0]);
-                    } else {
-                        mv.visitFrame(Opcodes.F_SAME, -1, null, 0, new Object[0]);
-                    }
+                    metaDataTracker.defineFrame(mv, instrumentedMethod, adviseMethod.getReturnType().represents(void.class)
+                            ? Collections.<TypeDescription>emptyList()
+                            : Collections.singletonList(adviseMethod.getReturnType().asErasure()));
                     mv.visitLabel(endOfMethod);
                     suppressionHandler.onEnd(mv, this);
                 }
@@ -2294,27 +2256,9 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                 mv.visitInsn(opcode);
                                 return;
                         }
-                        if (metaDataTracker.isFullFrameRequired()) {
-                            Object[] local = new Object[instrumentedMethod.getParameters().size()
-                                    + (instrumentedMethod.isStatic() ? 0 : 1)
-                                    + (adviseMethod.getReturnType().represents(void.class) ? 0 : 1)];
-                            int index;
-                            if (instrumentedMethod.isStatic()) {
-                                index = 0;
-                            } else {
-                                local[0] = instrumentedMethod.getDeclaringType().getInternalName();
-                                index = 1;
-                            }
-                            for (TypeDescription parameterType : instrumentedMethod.getParameters().asTypeList().asErasures()) {
-                                local[index++] = parameterType.getInternalName();
-                            }
-                            if (!adviseMethod.getReturnType().represents(void.class)) {
-                                local[index] = adviseMethod.getReturnType().asErasure().getInternalName();
-                            }
-                            mv.visitFrame(Opcodes.F_FULL, local.length, local, 0, new Object[0]);
-                        } else {
-                            mv.visitFrame(Opcodes.F_SAME, -1, null, 0, new Object[0]);
-                        }
+                        metaDataTracker.defineFrame(mv, instrumentedMethod, adviseMethod.getReturnType().represents(void.class)
+                                ? Collections.<TypeDescription>emptyList()
+                                : Collections.singletonList(adviseMethod.getReturnType().asErasure()));
                         mv.visitJumpInsn(Opcodes.GOTO, endOfMethod);
                     }
 
@@ -2437,33 +2381,15 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                 mv.visitInsn(opcode);
                                 return;
                         }
-                        if (metaDataTracker.isFullFrameRequired()) {
-                            Object[] local = new Object[instrumentedMethod.getParameters().size()
-                                    + (instrumentedMethod.isStatic() ? 0 : 1)
-                                    + (adviseMethod.getReturnType().represents(void.class) ? 0 : 1)
-                                    + (instrumentedMethod.getReturnType().represents(void.class) ? 0 : 1)
-                                    + THROWABLE_SIZE];
-                            int index;
-                            if (instrumentedMethod.isStatic()) {
-                                index = 0;
-                            } else {
-                                local[0] = instrumentedMethod.getDeclaringType().getInternalName();
-                                index = 1;
-                            }
-                            for (TypeDescription parameterType : instrumentedMethod.getParameters().asTypeList().asErasures()) {
-                                local[index++] = parameterType.getInternalName();
-                            }
-                            if (!adviseMethod.getReturnType().represents(void.class)) {
-                                local[index++] = adviseMethod.getReturnType().asErasure().getInternalName();
-                            }
-                            if (!instrumentedMethod.getReturnType().represents(void.class)) {
-                                local[index++] = instrumentedMethod.getReturnType().asErasure().getInternalName();
-                            }
-                            local[index] = Type.getInternalName(Throwable.class);
-                            mv.visitFrame(Opcodes.F_FULL, local.length, local, 0, new Object[0]);
-                        } else {
-                            mv.visitFrame(Opcodes.F_SAME, -1, null, 0, new Object[0]);
+                        List<TypeDescription> additionalArguments = new ArrayList<TypeDescription>(3);
+                        if (!adviseMethod.getReturnType().represents(void.class)) {
+                            additionalArguments.add(adviseMethod.getReturnType().asErasure());
                         }
+                        if (!instrumentedMethod.getReturnType().represents(void.class)) {
+                            additionalArguments.add(instrumentedMethod.getReturnType().asErasure());
+                        }
+                        additionalArguments.add(TypeDescription.THROWABLE);
+                        metaDataTracker.defineFrame(mv, instrumentedMethod, additionalArguments);
                         mv.visitJumpInsn(Opcodes.GOTO, endOfMethod);
                     }
 
@@ -2551,14 +2477,47 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
 
     protected static class MetaDataTracker {
 
-        private boolean fullFrameRequired;
+        private static final int IGNORED = -1;
 
-        protected boolean isFullFrameRequired() {
-            return fullFrameRequired;
-        }
+        private static final Object[] UNDEFINED = null;
+
+        private boolean fullFrameRequired;
 
         protected void requireFullFrame() {
             fullFrameRequired = true;
+        }
+
+        protected void defineFrame(MethodVisitor methodVisitor,
+                                   MethodDescription.InDefinedShape methodDescription,
+                                   List<? extends TypeDescription> additionalArguments) {
+            defineFrame(methodVisitor, methodDescription, additionalArguments, Collections.<TypeDescription>emptyList());
+        }
+
+        protected void defineFrame(MethodVisitor methodVisitor,
+                                   MethodDescription.InDefinedShape methodDescription,
+                                   List<? extends TypeDescription> additionalArguments,
+                                   List<? extends TypeDescription> stackValues) {
+            if (fullFrameRequired) {
+                Object[] local = new Object[methodDescription.getParameters().size()
+                        + (methodDescription.isStatic() ? 0 : 1)
+                        + additionalArguments.size()];
+                int index;
+                if (methodDescription.isStatic()) {
+                    index = 0;
+                } else {
+                    local[0] = methodDescription.getDeclaringType().getInternalName();
+                    index = 1;
+                }
+                for (TypeDescription parameterType : methodDescription.getParameters().asTypeList().asErasures()) {
+                    local[index++] = parameterType.getInternalName();
+                }
+                for (TypeDescription additionalArgument : additionalArguments) {
+                    local[index++] = additionalArgument.getInternalName();
+                }
+                methodVisitor.visitFrame(Opcodes.F_FULL, local.length, local, 0, new Object[0]);
+            } else {
+                methodVisitor.visitFrame(Opcodes.F_SAME, IGNORED, UNDEFINED, IGNORED, UNDEFINED);
+            }
         }
     }
 

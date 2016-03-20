@@ -55,6 +55,8 @@ public interface TypeDescription extends TypeDefinition, TypeVariableSource {
      */
     TypeDescription VOID = new ForLoadedType(void.class);
 
+    TypeDescription THROWABLE = new ForLoadedType(Throwable.class);
+
     /**
      * The modifiers of any array type.
      */
