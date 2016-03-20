@@ -11,7 +11,6 @@ import net.bytebuddy.dynamic.loading.ClassLoadingStrategy;
 import net.bytebuddy.implementation.bytecode.StackSize;
 import net.bytebuddy.test.utility.ObjectPropertyAssertion;
 import org.junit.Test;
-import org.objectweb.asm.ClassWriter;
 
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -39,7 +38,7 @@ public class AdviceTest {
     public void testTrivialAdvice() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(TrivialAdvice.class)))
+                .visit(Advice.to(TrivialAdvice.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -52,7 +51,7 @@ public class AdviceTest {
     public void testAdviceWithImplicitArgument() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR), Advice.to(ArgumentAdvice.class)))
+                .visit(Advice.to(ArgumentAdvice.class).on(named(BAR)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -65,7 +64,7 @@ public class AdviceTest {
     public void testAdviceWithExplicitArgument() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(QUX), Advice.to(ArgumentAdviceExplicit.class)))
+                .visit(Advice.to(ArgumentAdviceExplicit.class).on(named(QUX)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -78,7 +77,7 @@ public class AdviceTest {
     public void testAdviceWithThisReference() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(ThisReferenceAdvice.class)))
+                .visit(Advice.to(ThisReferenceAdvice.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -91,7 +90,7 @@ public class AdviceTest {
     public void testAdviceWithEntranceValue() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(EntranceValueAdvice.class)))
+                .visit(Advice.to(EntranceValueAdvice.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -104,7 +103,7 @@ public class AdviceTest {
     public void testAdviceWithReturnValue() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(ReturnValueAdvice.class)))
+                .visit(Advice.to(ReturnValueAdvice.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -117,7 +116,7 @@ public class AdviceTest {
     public void testAdviceNotSkipExceptionImplicit() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO + BAR), Advice.to(TrivialAdvice.class)))
+                .visit(Advice.to(TrivialAdvice.class).on(named(FOO + BAR)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -135,7 +134,7 @@ public class AdviceTest {
     public void testAdviceSkipExceptionImplicit() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO + BAR), Advice.to(TrivialAdviceSkipException.class)))
+                .visit(Advice.to(TrivialAdviceSkipException.class).on(named(FOO + BAR)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -153,7 +152,7 @@ public class AdviceTest {
     public void testAdviceNotSkipExceptionExplicit() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR + BAZ), Advice.to(TrivialAdvice.class)))
+                .visit(Advice.to(TrivialAdvice.class).on(named(BAR + BAZ)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -171,7 +170,7 @@ public class AdviceTest {
     public void testAdviceSkipExceptionExplicit() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR + BAZ), Advice.to(TrivialAdviceSkipException.class)))
+                .visit(Advice.to(TrivialAdviceSkipException.class).on(named(BAR + BAZ)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -189,7 +188,7 @@ public class AdviceTest {
     public void testAdviceSkipExceptionDoesNotSkipNonException() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(TrivialAdviceSkipException.class)))
+                .visit(Advice.to(TrivialAdviceSkipException.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -202,7 +201,7 @@ public class AdviceTest {
     public void testObsoleteReturnValue() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(ObsoleteReturnValueAdvice.class)))
+                .visit(Advice.to(ObsoleteReturnValueAdvice.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -215,7 +214,7 @@ public class AdviceTest {
     public void testUnusedReturnValue() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(UnusedReturnValueAdvice.class)))
+                .visit(Advice.to(UnusedReturnValueAdvice.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -228,7 +227,7 @@ public class AdviceTest {
     public void testVariableMappingAdviceLarger() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR), Advice.to(AdviceWithVariableValues.class)))
+                .visit(Advice.to(AdviceWithVariableValues.class).on(named(BAR)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -241,7 +240,7 @@ public class AdviceTest {
     public void testVariableMappingInstrumentedLarger() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(QUX + BAZ), Advice.to(AdviceWithVariableValues.class)))
+                .visit(Advice.to(AdviceWithVariableValues.class).on(named(QUX + BAZ)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -254,7 +253,7 @@ public class AdviceTest {
     public void testExceptionWhenNotThrown() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(ThrowableAdvice.class)))
+                .visit(Advice.to(ThrowableAdvice.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -266,7 +265,7 @@ public class AdviceTest {
     public void testExceptionWhenThrown() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO + BAR), Advice.to(ThrowableAdvice.class)))
+                .visit(Advice.to(ThrowableAdvice.class).on(named(FOO + BAR)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -283,7 +282,7 @@ public class AdviceTest {
     public void testAdviceThrowOnEnter() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(TracableSample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(ThrowOnEnter.class)))
+                .visit(Advice.to(ThrowOnEnter.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -302,7 +301,7 @@ public class AdviceTest {
     public void testAdviceThrowOnExit() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(TracableSample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(ThrowOnExit.class)))
+                .visit(Advice.to(ThrowOnExit.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -321,7 +320,7 @@ public class AdviceTest {
     public void testAdviceThrowSuppressed() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(TracableSample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(ThrowSuppressed.class)))
+                .visit(Advice.to(ThrowSuppressed.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -335,7 +334,7 @@ public class AdviceTest {
     public void testAdviceThrowNotSuppressedOnEnter() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(TracableSample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(ThrowNotSuppressedOnEnter.class)))
+                .visit(Advice.to(ThrowNotSuppressedOnEnter.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -354,7 +353,7 @@ public class AdviceTest {
     public void testAdviceThrowNotSuppressedOnExit() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(TracableSample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(ThrowNotSuppressedOnExit.class)))
+                .visit(Advice.to(ThrowNotSuppressedOnExit.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -373,7 +372,7 @@ public class AdviceTest {
     public void testThisValueSubstitution() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Box.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(ThisSubstitutionAdvice.class)))
+                .visit(Advice.to(ThisSubstitutionAdvice.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -384,7 +383,7 @@ public class AdviceTest {
     public void testIllegalThisValueSubstitution() throws Exception {
         new ByteBuddy()
                 .redefine(Box.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(IllegalThisSubstitutionAdvice.class)))
+                .visit(Advice.to(IllegalThisSubstitutionAdvice.class).on(named(FOO)))
                 .make();
     }
 
@@ -392,7 +391,7 @@ public class AdviceTest {
     public void testParameterValueSubstitution() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Box.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR), Advice.to(ParameterSubstitutionAdvice.class)))
+                .visit(Advice.to(ParameterSubstitutionAdvice.class).on(named(BAR)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -403,7 +402,7 @@ public class AdviceTest {
     public void testIllegalParameterValueSubstitution() throws Exception {
         new ByteBuddy()
                 .redefine(Box.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR), Advice.to(IllegalParameterSubstitutionAdvice.class)))
+                .visit(Advice.to(IllegalParameterSubstitutionAdvice.class).on(named(BAR)))
                 .make();
     }
 
@@ -411,7 +410,7 @@ public class AdviceTest {
     public void testReturnValueSubstitution() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR), Advice.to(ReturnSubstitutionAdvice.class)))
+                .visit(Advice.to(ReturnSubstitutionAdvice.class).on(named(BAR)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -422,7 +421,7 @@ public class AdviceTest {
     public void testIllegalReturnValueSubstitution() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(IllegalReturnSubstitutionAdvice.class)))
+                .visit(Advice.to(IllegalReturnSubstitutionAdvice.class).on(named(FOO)))
                 .make();
     }
 
@@ -430,7 +429,7 @@ public class AdviceTest {
     public void testEnterValueSubstitution() throws Exception {
         Class<?> type = new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(EnterSubstitutionAdvice.class)))
+                .visit(Advice.to(EnterSubstitutionAdvice.class).on(named(FOO)))
                 .make()
                 .load(null, ClassLoadingStrategy.Default.WRAPPER)
                 .getLoaded();
@@ -441,8 +440,34 @@ public class AdviceTest {
     public void testIllegalEnterValueSubstitution() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR), Advice.to(IllegalEnterSubstitutionAdvice.class)))
+                .visit(Advice.to(IllegalEnterSubstitutionAdvice.class).on(named(BAR)))
                 .make();
+    }
+
+    @Test
+    public void testFieldAdviceImplicit() throws Exception {
+        Class<?> type = new ByteBuddy()
+                .redefine(FieldSample.class)
+                .visit(Advice.to(FieldAdviceImplicit.class).on(named(FOO)))
+                .make()
+                .load(null, ClassLoadingStrategy.Default.WRAPPER)
+                .getLoaded();
+        assertThat(type.getDeclaredMethod(FOO).invoke(type.newInstance()), is((Object) FOO));
+        assertThat(type.getDeclaredField(ENTER).get(null), is((Object) 1));
+        assertThat(type.getDeclaredField(EXIT).get(null), is((Object) 1));
+    }
+
+    @Test
+    public void testFieldAdviceExplicit() throws Exception {
+        Class<?> type = new ByteBuddy()
+                .redefine(FieldSample.class)
+                .visit(Advice.to(FieldAdviceExplicit.class).on(named(FOO)))
+                .make()
+                .load(null, ClassLoadingStrategy.Default.WRAPPER)
+                .getLoaded();
+        assertThat(type.getDeclaredMethod(FOO).invoke(type.newInstance()), is((Object) FOO));
+        assertThat(type.getDeclaredField(ENTER).get(null), is((Object) 1));
+        assertThat(type.getDeclaredField(EXIT).get(null), is((Object) 1));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -486,7 +511,7 @@ public class AdviceTest {
     public void testAdviceWithNonExistentArgument() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(IllegalArgumentAdvice.class)))
+                .visit(Advice.to(IllegalArgumentAdvice.class).on(named(FOO)))
                 .make();
     }
 
@@ -494,7 +519,7 @@ public class AdviceTest {
     public void testAdviceWithNonAssignableParameterImplicit() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR), Advice.to(IllegalArgumentAdvice.class)))
+                .visit(Advice.to(IllegalArgumentAdvice.class).on(named(BAR)))
                 .make();
     }
 
@@ -502,7 +527,7 @@ public class AdviceTest {
     public void testAdviceWithNonAssignableParameter() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR), Advice.to(IllegalArgumentWritableAdvice.class)))
+                .visit(Advice.to(IllegalArgumentWritableAdvice.class).on(named(BAR)))
                 .make();
     }
 
@@ -510,7 +535,7 @@ public class AdviceTest {
     public void testAdviceWithNonEqualParameter() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAR), Advice.to(IllegalArgumentReadOnlyAdvice.class)))
+                .visit(Advice.to(IllegalArgumentReadOnlyAdvice.class).on(named(BAR)))
                 .make();
     }
 
@@ -518,7 +543,7 @@ public class AdviceTest {
     public void testAdviceThisReferenceNonExistent() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(BAZ), Advice.to(ThisReferenceAdvice.class)))
+                .visit(Advice.to(ThisReferenceAdvice.class).on(named(BAZ)))
                 .make();
     }
 
@@ -526,7 +551,7 @@ public class AdviceTest {
     public void testAdviceWithNonAssignableThisReference() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(IllegalThisReferenceAdvice.class)))
+                .visit(Advice.to(IllegalThisReferenceAdvice.class).on(named(FOO)))
                 .make();
     }
 
@@ -534,7 +559,7 @@ public class AdviceTest {
     public void testAdviceWithNonEqualThisReference() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(IllegalThisReferenceWritableAdvice.class)))
+                .visit(Advice.to(IllegalThisReferenceWritableAdvice.class).on(named(FOO)))
                 .make();
     }
 
@@ -542,7 +567,7 @@ public class AdviceTest {
     public void testAdviceWithNonAssignableReturnValue() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO + QUX), Advice.to(NonAssignableReturnAdvice.class)))
+                .visit(Advice.to(NonAssignableReturnAdvice.class).on(named(FOO + QUX)))
                 .make();
     }
 
@@ -550,7 +575,7 @@ public class AdviceTest {
     public void testAdviceWithNonAssignableReturnValueWritable() throws Exception {
         new ByteBuddy()
                 .redefine(Sample.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO + QUX), Advice.to(NonEqualReturnWritableAdvice.class)))
+                .visit(Advice.to(NonEqualReturnWritableAdvice.class).on(named(FOO + QUX)))
                 .make();
     }
 
@@ -558,7 +583,7 @@ public class AdviceTest {
     public void testAdviceAbstractMethod() throws Exception {
         new ByteBuddy()
                 .redefine(AbstractMethod.class)
-                .visit(new AsmVisitorWrapper.ForDeclaredMethods().writerFlags(ClassWriter.COMPUTE_MAXS).method(named(FOO), Advice.to(TrivialAdvice.class)))
+                .visit(Advice.to(TrivialAdvice.class).on(named(FOO)))
                 .make();
     }
 
@@ -575,6 +600,38 @@ public class AdviceTest {
     @Test(expected = IllegalStateException.class)
     public void testIllegalThrowableType() throws Exception {
         Advice.to(IllegalThrowableTypeAdvice.class);
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testFieldIllegalExplicit() throws Exception {
+        new ByteBuddy()
+                .redefine(FieldSample.class)
+                .visit(Advice.to(FieldAdviceIllegalExplicit.class).on(named(FOO)))
+                .make();
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testFieldNonExistent() throws Exception {
+        new ByteBuddy()
+                .redefine(FieldSample.class)
+                .visit(Advice.to(FieldAdviceNonExistent.class).on(named(FOO)))
+                .make();
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testFieldNonAssignable() throws Exception {
+        new ByteBuddy()
+                .redefine(FieldSample.class)
+                .visit(Advice.to(FieldAdviceNonAssignable.class).on(named(FOO)))
+                .make();
+    }
+
+    @Test(expected = IllegalStateException.class)
+    public void testFieldWrite() throws Exception {
+        new ByteBuddy()
+                .redefine(FieldSample.class)
+                .visit(Advice.to(FieldAdviceWrite.class).on(named(FOO)))
+                .make();
     }
 
     @Test
@@ -595,10 +652,11 @@ public class AdviceTest {
     @Test
     public void testObjectProperties() throws Exception {
         ObjectPropertyAssertion.of(Advice.class).apply();
-        ObjectPropertyAssertion.of(Advice.AdviceInjectionVisitor.CodeCopier.class).applyBasic();
+        ObjectPropertyAssertion.of(Advice.AdviceVisitor.CodeCopier.class).applyBasic();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Inactive.class).apply();
-        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.Target.ReadOnly.class).apply();
-        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.Target.ReadWrite.class).apply();
+        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.Target.ForReadOnlyParameter.class).apply();
+        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.Target.ForParameter.class).apply();
+        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.Target.ForField.class).apply();
         final int[] value = new int[1];
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.ForParameter.class).refine(new ObjectPropertyAssertion.Refinement<Advice.Argument>() {
             @Override
@@ -609,6 +667,9 @@ public class AdviceTest {
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.ForParameter.Factory.class).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.ForThisReference.class).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.ForThisReference.Factory.class).apply();
+        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.ForField.WithImplicitType.class).apply();
+        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.ForField.WithExplicitType.class).apply();
+        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.ForField.Factory.class).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.ForReturnValue.class).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.ForReturnValue.Factory.class).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.ForThrowable.class).apply();
@@ -646,8 +707,8 @@ public class AdviceTest {
         }).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.SuppressionHandler.NoOp.class).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.SuppressionHandler.Suppressing.class).apply();
-        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.ForMethodExit.class).applyBasic();
-        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.ForMethodEnter.class).applyBasic();
+        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.ReturnValueDiscarding.class).applyBasic();
+        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.ReturnValueRetaining.class).applyBasic();
     }
 
     @SuppressWarnings("unused")
@@ -1063,6 +1124,91 @@ public class AdviceTest {
 
         public static String bar(String value) {
             return value;
+        }
+    }
+
+    public static class FieldSample {
+
+        public static int enter, exit;
+
+        private String foo = FOO;
+
+        public String foo() {
+            return foo;
+        }
+
+        public static String bar() {
+            return BAR;
+        }
+    }
+
+    public static class FieldAdviceImplicit {
+
+        @Advice.OnMethodEnter
+        private static void enter(@Advice.FieldValue("foo") String foo) {
+            FieldSample.enter++;
+            if (!foo.equals(FOO)) {
+                throw new AssertionError();
+            }
+        }
+
+        @Advice.OnMethodExit
+        private static void exit(@Advice.FieldValue("foo") String foo) {
+            FieldSample.exit++;
+            if (!foo.equals(FOO)) {
+                throw new AssertionError();
+            }
+        }
+    }
+
+    public static class FieldAdviceExplicit {
+
+        @Advice.OnMethodEnter
+        private static void enter(@Advice.FieldValue(value = "foo", declaringType = FieldSample.class) String foo) {
+            FieldSample.enter++;
+            if (!foo.equals(FOO)) {
+                throw new AssertionError();
+            }
+        }
+
+        @Advice.OnMethodExit
+        private static void exit(@Advice.FieldValue(value = "foo", declaringType = FieldSample.class) String foo) {
+            FieldSample.exit++;
+            if (!foo.equals(FOO)) {
+                throw new AssertionError();
+            }
+        }
+    }
+
+    public static class FieldAdviceIllegalExplicit {
+
+        @Advice.OnMethodEnter
+        private static void enter(@Advice.FieldValue(value = "bar", declaringType = Void.class) String bar) {
+            throw new AssertionError();
+        }
+    }
+
+    public static class FieldAdviceNonExistent {
+
+        @Advice.OnMethodEnter
+        private static void enter(@Advice.FieldValue("bar") String bar) {
+            throw new AssertionError();
+        }
+    }
+
+    public static class FieldAdviceNonAssignable {
+
+        @Advice.OnMethodEnter
+        private static void enter(@Advice.FieldValue("foo") Void foo) {
+            throw new AssertionError();
+        }
+    }
+
+    public static class FieldAdviceWrite {
+
+        @Advice.OnMethodEnter
+        private static void enter(@Advice.FieldValue("foo") String foo) {
+            foo = BAR;
         }
     }
 
