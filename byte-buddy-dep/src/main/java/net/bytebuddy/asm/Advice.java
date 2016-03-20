@@ -260,7 +260,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
          */
         private final ClassReader classReader;
 
-        protected boolean frameVisited;
+        protected final MetaDataTracker metaDataTracker;
 
         /**
          * Creates an advise visitor.
@@ -281,6 +281,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
             this.methodEnter = methodEnter;
             this.methodExit = methodExit;
             this.classReader = new ClassReader(binaryRepresentation);
+            metaDataTracker = new MetaDataTracker();
         }
 
         @Override
@@ -370,6 +371,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
             switch (type) {
                 case Opcodes.F_FULL:
                 case Opcodes.F_NEW:
+                    metaDataTracker.requireFullFrame();
                     if (!methodEnter.getEnterType().represents(void.class)) {
                         int oldLocals = instrumentedMethod.getParameters().size() + (instrumentedMethod.isStatic() ? 0 : 1);
                         Object[] adjustedLocal = new Object[localVariableSize + 1];
@@ -379,10 +381,11 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                         mv.visitFrame(type, localVariableSize + 1, adjustedLocal, stackSize, stack);
                         break;
                     }
-                case Opcodes.F_SAME:
-                case Opcodes.F_SAME1:
                 case Opcodes.F_APPEND:
                 case Opcodes.F_CHOP:
+                    metaDataTracker.requireFullFrame();
+                case Opcodes.F_SAME1:
+                case Opcodes.F_SAME:
                 default:
                     super.visitFrame(type, localVariableSize, local, stackSize, stack);
             }
@@ -419,7 +422,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
          * @param dispatcher The dispatcher for which the byte code should be appended.
          */
         private void append(Dispatcher.Resolved dispatcher) {
-            classReader.accept(new CodeCopier(dispatcher), ClassReader.SKIP_DEBUG);
+            classReader.accept(new CodeCopier(dispatcher, metaDataTracker), ClassReader.SKIP_DEBUG);
         }
 
         /**
@@ -432,19 +435,23 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
              */
             private final Dispatcher.Resolved dispatcher;
 
+            private final MetaDataTracker metaDataTracker;
+
             /**
              * Creates a new code copier.
              *
              * @param dispatcher The dispatcher to use.
+             * @param metaDataTracker
              */
-            protected CodeCopier(Dispatcher.Resolved dispatcher) {
+            protected CodeCopier(Dispatcher.Resolved dispatcher, MetaDataTracker metaDataTracker) {
                 super(Opcodes.ASM5);
                 this.dispatcher = dispatcher;
+                this.metaDataTracker = metaDataTracker;
             }
 
             @Override
             public MethodVisitor visitMethod(int modifiers, String internalName, String descriptor, String signature, String[] exception) {
-                return dispatcher.apply(internalName, descriptor, mv, instrumentedMethod);
+                return dispatcher.apply(internalName, descriptor, mv, instrumentedMethod, metaDataTracker);
             }
 
             @Override
@@ -527,7 +534,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                 for (TypeDescription typeDescription : instrumentedMethod.getParameters().asTypeList().asErasures()) {
                     local[index++] = typeDescription.getInternalName();
                 }
-                if (frameVisited) {
+                if (metaDataTracker.isFullFrameRequired()) {
                     mv.visitFrame(Opcodes.F_FULL, local.length, local, 1, new Object[]{Type.getInternalName(Throwable.class)});
                 } else {
                     mv.visitFrame(Opcodes.F_SAME, -1, null, 0, new Object[0]);
@@ -537,7 +544,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                 storeDefaultReturn();
                 appendExit();
                 variable(Opcodes.ALOAD, instrumentedMethod.getReturnType().getStackSize().getSize());
-                if (frameVisited) {
+                if (metaDataTracker.isFullFrameRequired()) {
                     mv.visitFrame(Opcodes.F_FULL, local.length, local.clone(), 1, new Object[]{Type.getInternalName(Throwable.class)});
                 } else {
                     mv.visitFrame(Opcodes.F_SAME, -1, null, 1, new Object[]{Type.getInternalName(Throwable.class)});
@@ -671,7 +678,11 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
              * @param instrumentedMethod A description of the instrumented method.
              * @return A method visitor for reading the discovered method or {@code null} if the discovered method is of no interest.
              */
-            MethodVisitor apply(String internalName, String descriptor, MethodVisitor methodVisitor, MethodDescription.InDefinedShape instrumentedMethod);
+            MethodVisitor apply(String internalName,
+                                String descriptor,
+                                MethodVisitor methodVisitor,
+                                MethodDescription.InDefinedShape instrumentedMethod,
+                                MetaDataTracker metaDataTracker);
 
             /**
              * Represents a resolved dispatcher for entering a method.
@@ -737,7 +748,11 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
             }
 
             @Override
-            public MethodVisitor apply(String internalName, String descriptor, MethodVisitor methodVisitor, MethodDescription.InDefinedShape instrumentedMethod) {
+            public MethodVisitor apply(String internalName,
+                                       String descriptor,
+                                       MethodVisitor methodVisitor,
+                                       MethodDescription.InDefinedShape instrumentedMethod,
+                                       MetaDataTracker metaDataTracker) {
                 return IGNORE_METHOD;
             }
 
@@ -846,9 +861,13 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                 }
 
                 @Override
-                public MethodVisitor apply(String internalName, String descriptor, MethodVisitor methodVisitor, MethodDescription.InDefinedShape instrumentedMethod) {
+                public MethodVisitor apply(String internalName,
+                                           String descriptor,
+                                           MethodVisitor methodVisitor,
+                                           MethodDescription.InDefinedShape instrumentedMethod,
+                                           MetaDataTracker metaDataTracker) {
                     return adviseMethod.getInternalName().equals(internalName) && adviseMethod.getDescriptor().equals(descriptor)
-                            ? apply(methodVisitor, instrumentedMethod)
+                            ? apply(methodVisitor, instrumentedMethod, metaDataTracker)
                             : IGNORE_METHOD;
                 }
 
@@ -859,7 +878,9 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                  * @param instrumentedMethod A description of the instrumented method.
                  * @return A method visitor for visiting the advise method's byte code.
                  */
-                protected abstract MethodVisitor apply(MethodVisitor methodVisitor, MethodDescription.InDefinedShape instrumentedMethod);
+                protected abstract MethodVisitor apply(MethodVisitor methodVisitor,
+                                                       MethodDescription.InDefinedShape instrumentedMethod,
+                                                       MetaDataTracker metaDataTracker);
 
                 @Override
                 public boolean equals(Object other) {
@@ -1825,7 +1846,9 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                     }
 
                     @Override
-                    protected MethodVisitor apply(MethodVisitor methodVisitor, MethodDescription.InDefinedShape instrumentedMethod) {
+                    protected MethodVisitor apply(MethodVisitor methodVisitor,
+                                                  MethodDescription.InDefinedShape instrumentedMethod,
+                                                  MetaDataTracker metaDataTracker) {
                         Map<Integer, OffsetMapping.Target> offsetMappings = new HashMap<Integer, OffsetMapping.Target>();
                         for (Map.Entry<Integer, OffsetMapping> entry : this.offsetMappings.entrySet()) {
                             offsetMappings.put(entry.getKey(), entry.getValue().resolve(instrumentedMethod, StackSize.ZERO));
@@ -1834,7 +1857,8 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                 instrumentedMethod,
                                 adviseMethod,
                                 offsetMappings,
-                                adviseMethod.getDeclaredAnnotations().ofType(OnMethodEnter.class).getValue(SUPPRESS, TypeDescription.class));
+                                adviseMethod.getDeclaredAnnotations().ofType(OnMethodEnter.class).getValue(SUPPRESS, TypeDescription.class),
+                                metaDataTracker);
                     }
 
                     @Override
@@ -1892,7 +1916,9 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                     }
 
                     @Override
-                    protected MethodVisitor apply(MethodVisitor methodVisitor, MethodDescription.InDefinedShape instrumentedMethod) {
+                    protected MethodVisitor apply(MethodVisitor methodVisitor,
+                                                  MethodDescription.InDefinedShape instrumentedMethod,
+                                                  MetaDataTracker metaDataTracker) {
                         Map<Integer, OffsetMapping.Target> offsetMappings = new HashMap<Integer, OffsetMapping.Target>();
                         for (Map.Entry<Integer, OffsetMapping> entry : this.offsetMappings.entrySet()) {
                             offsetMappings.put(entry.getKey(), entry.getValue().resolve(instrumentedMethod, enterType.getStackSize()));
@@ -1902,7 +1928,8 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                 adviseMethod,
                                 offsetMappings,
                                 adviseMethod.getDeclaredAnnotations().ofType(OnMethodExit.class).getValue(SUPPRESS, TypeDescription.class),
-                                enterType);
+                                enterType,
+                                metaDataTracker);
                     }
 
                     @Override
@@ -1978,7 +2005,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                  */
                 protected final Label endOfMethod;
 
-                protected boolean definesFrame = false;
+                protected final MetaDataTracker metaDataTracker;
 
                 /**
                  * Creates a new code translation visitor.
@@ -1993,7 +2020,8 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                                  MethodDescription.InDefinedShape instrumentedMethod,
                                                  MethodDescription.InDefinedShape adviseMethod,
                                                  Map<Integer, Resolved.OffsetMapping.Target> offsetMappings,
-                                                 TypeDescription throwableType) {
+                                                 TypeDescription throwableType,
+                                                 MetaDataTracker metaDataTracker) {
                     super(Opcodes.ASM5, methodVisitor);
                     this.instrumentedMethod = instrumentedMethod;
                     this.adviseMethod = adviseMethod;
@@ -2001,6 +2029,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                     suppressionHandler = throwableType.represents(NoSuppression.class)
                             ? SuppressionHandler.NoOp.INSTANCE
                             : new SuppressionHandler.Suppressing(throwableType);
+                    this.metaDataTracker = metaDataTracker;
                     endOfMethod = new Label();
                 }
 
@@ -2073,7 +2102,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
 
                 @Override
                 public void visitEnd() {
-                    if (definesFrame) {
+                    if (metaDataTracker.isFullFrameRequired()) {
                         Object[] local = new Object[instrumentedMethod.getParameters().size()
                                 + (instrumentedMethod.isStatic() ? 0 : 1)
                                 + (adviseMethod.getReturnType().represents(void.class) ? 0 : 1)];
@@ -2236,8 +2265,9 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                              MethodDescription.InDefinedShape instrumentedMethod,
                                              MethodDescription.InDefinedShape adviseMethod,
                                              Map<Integer, Resolved.OffsetMapping.Target> offsetMappings,
-                                             TypeDescription throwableType) {
-                        super(methodVisitor, instrumentedMethod, adviseMethod, offsetMappings, throwableType);
+                                             TypeDescription throwableType,
+                                             MetaDataTracker metaDataTracker) {
+                        super(methodVisitor, instrumentedMethod, adviseMethod, offsetMappings, throwableType, metaDataTracker);
                     }
 
                     @Override
@@ -2264,7 +2294,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                 mv.visitInsn(opcode);
                                 return;
                         }
-                        if (definesFrame) {
+                        if (metaDataTracker.isFullFrameRequired()) {
                             Object[] local = new Object[instrumentedMethod.getParameters().size()
                                     + (instrumentedMethod.isStatic() ? 0 : 1)
                                     + (adviseMethod.getReturnType().represents(void.class) ? 0 : 1)];
@@ -2383,8 +2413,9 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                             MethodDescription.InDefinedShape adviseMethod,
                                             Map<Integer, Resolved.OffsetMapping.Target> offsetMappings,
                                             TypeDescription throwableType,
-                                            TypeDescription enterType) {
-                        super(methodVisitor, instrumentedMethod, adviseMethod, offsetMappings, throwableType);
+                                            TypeDescription enterType,
+                                            MetaDataTracker metaDataTracker) {
+                        super(methodVisitor, instrumentedMethod, adviseMethod, offsetMappings, throwableType, metaDataTracker);
                         this.enterType = enterType;
                     }
 
@@ -2406,7 +2437,7 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                                 mv.visitInsn(opcode);
                                 return;
                         }
-                        if (definesFrame) {
+                        if (metaDataTracker.isFullFrameRequired()) {
                             Object[] local = new Object[instrumentedMethod.getParameters().size()
                                     + (instrumentedMethod.isStatic() ? 0 : 1)
                                     + (adviseMethod.getReturnType().represents(void.class) ? 0 : 1)
@@ -2515,6 +2546,19 @@ public class Advice implements AsmVisitorWrapper.ForDeclaredMethods.MethodVisito
                     }
                 }
             }
+        }
+    }
+
+    protected static class MetaDataTracker {
+
+        private boolean fullFrameRequired;
+
+        protected boolean isFullFrameRequired() {
+            return fullFrameRequired;
+        }
+
+        protected void requireFullFrame() {
+            fullFrameRequired = true;
         }
     }
 
