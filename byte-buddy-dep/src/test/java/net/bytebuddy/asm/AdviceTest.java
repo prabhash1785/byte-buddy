@@ -652,7 +652,7 @@ public class AdviceTest {
     @Test
     public void testObjectProperties() throws Exception {
         ObjectPropertyAssertion.of(Advice.class).apply();
-        ObjectPropertyAssertion.of(Advice.AdviceVisitor.CodeCopier.class).applyBasic();
+        ObjectPropertyAssertion.of(Advice.AdviceInjectionVisitor.CodeCopier.class).applyBasic();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Inactive.class).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.Target.ForReadOnlyParameter.class).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.Resolved.OffsetMapping.Target.ForParameter.class).apply();
@@ -707,8 +707,8 @@ public class AdviceTest {
         }).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.SuppressionHandler.NoOp.class).apply();
         ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.SuppressionHandler.Suppressing.class).apply();
-        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.ReturnValueDiscarding.class).applyBasic();
-        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.ReturnValueRetaining.class).applyBasic();
+        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.ForMethodEnter.class).applyBasic();
+        ObjectPropertyAssertion.of(Advice.Dispatcher.Active.CodeTranslationVisitor.ForMethodExit.class).applyBasic();
     }
 
     @SuppressWarnings("unused")
